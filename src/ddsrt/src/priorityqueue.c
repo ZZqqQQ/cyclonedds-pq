@@ -1,8 +1,15 @@
-#include "dds/ddsc/dds_priorityqueue.h"
+#include "dds/ddsrt/priorityqueue.h"
 
-pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t isEmptyCond = PTHREAD_COND_INITIALIZER;
+#if !DDSRT_WITH_FREERTOS
+    pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t isEmptyCond = PTHREAD_COND_INITIALIZER;
+#else
+    SemaphoreHandle_t mutex;
+    EventGroupHandle_t isEmptyCond;
+    StaticSemaphore_t xSemaphoreBuffer;
+    StaticEventGroup_t xCreatedEventGroup;
+#endif
 
 bool isFull(priorityQueue pQ){
     return pQ->size >= pQ->capacity;
@@ -14,6 +21,10 @@ bool isEmpty(priorityQueue pQ){
 
 priorityQueue initialize(int maxElements){
     priorityQueue pQ;
+    #if DDSRT_WITH_FREERTOS
+        mutex = xSemaphoreCreateMutex();
+        isEmptyCond = xEventGroupCreate();
+    #endif
 
     if(maxElements < MinPQSize){
         printf("Priority queue size is too small!\n");
@@ -54,10 +65,12 @@ void destroy(priorityQueue pQ){
     }
     free(pQ);
 
+#if !DDSRT_WITH_FREERTOS
     if(pthread_rwlock_destroy(&rwlock)){
         printf("Read/write lock destroy failed!");
         exit(1);
     }
+#endif
 }
 
 int percolateUp(priorityQueue pQ, int priority, int loc){
@@ -75,12 +88,21 @@ void insert(priorityQueue pQ, elementStruct *eS){
         printf("Priority queue is full!\n");
         return;
     }
-    pthread_mutex_lock(&mutex);
+    #if !DDSRT_WITH_FREERTOS
+        pthread_mutex_lock(&mutex);
+    #else
+        xSemaphoreTake(mutex, portMAX_DELAY);
+    #endif
     pQ->size++;
     int i = percolateUp(pQ, eS->priority, pQ->size);
     pQ->ele[i] = eS;
-    pthread_mutex_unlock(&mutex);
-    pthread_cond_signal(&isEmptyCond);
+    #if !DDSRT_WITH_FREERTOS
+        pthread_mutex_unlock(&mutex);
+        pthread_cond_signal(&isEmptyCond);
+    #else
+        xSemaphoreGive(mutex);
+        xEventGroupSetBits(isEmptyCond, 0x1);
+    #endif
 }
 
 void percolateDown(priorityQueue pQ){
@@ -119,6 +141,7 @@ void* deleteMin(priorityQueue pQ){
 }
 
 // Scan the bottom of binary heap(floor(size / 2) + 1 ~ size)
+#if !DDSRT_WITH_FREERTOS
 void scanQueue(priorityQueue pQ){
     int index;
     while(true){
@@ -132,14 +155,22 @@ void scanQueue(priorityQueue pQ){
             if(time(NULL) - pQ->ele[index]->startTime >= thresholdTime){
                 pQ->ele[index]->startTime = time(NULL);
                 if(pQ->ele[index]->priority - 1 >= 0){
-                    pthread_mutex_lock(&mutex);
+                    #if !DDSRT_WITH_FREERTOS
+                        pthread_mutex_lock(&mutex);
+                    #else
+                        xSemaphoreTake(mutex, portMAX_DELAY);
+                    #endif
                     pQ->ele[index]->priority -= 2;
                     printf("Priority has been raised to %d\n", pQ->ele[index]->priority);
                     elementStruct *tmp = pQ->ele[index];
                     int i = percolateUp(pQ, pQ->ele[index]->priority, index);
                     pQ->ele[i] = tmp;
-                    pthread_mutex_unlock(&mutex);
-                }
+                    #if !DDSRT_WITH_FREERTOS
+                        pthread_mutex_unlock(&mutex);
+                    #else
+                        xSemaphoreGive(mutex);
+                    #endif
+                    }
             }
             if((index + 1) > pQ->size){
                 index = pQ->size / 2 + 1;
@@ -151,45 +182,4 @@ void scanQueue(priorityQueue pQ){
 
     }
 }
-
-// void testCase1(priorityQueue pQ){
-//     HelloWorldData_Msg msg2;
-//     msg2.userID = 2;
-//     msg2.message = "Gensin2";
-//     elementStruct e1;
-//     e1.priority = 2;
-//     e1.msg = &msg2;
-//     insert(pQ, &e1);
-//     HelloWorldData_Msg msg3;
-//     msg3.userID = 3;
-//     msg3.message = "Gensin3";
-//     elementStruct e2;
-//     e2.priority = 3;
-//     e2.msg = &msg3;
-//     insert(pQ, &e2);
-//     HelloWorldData_Msg msg1;
-//     msg1.userID = 1;
-//     msg1.message = "Gensin1";
-//     elementStruct e;
-//     e.priority = 1;
-//     e.msg = &msg1;
-//     insert(pQ, &e);
-//     HelloWorldData_Msg msg4;
-//     msg4.userID = 1;
-//     msg4.message = "Gensin4";
-//     elementStruct e3;
-//     e3.priority = 4;
-//     e3.msg = &msg4;
-//     insert(pQ, &e3);
-//     HelloWorldData_Msg* ret;
-//     sleep(2);
-//     ret = deleteMin(pQ);
-//     printf("%s\n", ret->message);
-//     ret  = deleteMin(pQ);
-//     printf("%s\n", ret->message);
-//     ret = deleteMin(pQ);
-//     printf("%s\n", ret->message);
-//     sleep(1);
-//     ret = deleteMin(pQ);
-//     printf("%s\n", ret->message);
-// }
+#endif

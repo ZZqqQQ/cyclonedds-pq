@@ -1,5 +1,5 @@
 #include "dds/dds.h"
-#include "dds/ddsc/dds_priorityqueue.h"
+#include "dds/ddsrt/priorityqueue.h"
 #include "HelloWorldData.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +20,7 @@ void add_pq(priorityQueue pq){
   e1->startTime = time(NULL);
   e2->priority = 28;
   e2->startTime = time(NULL);
-  e3->priority = 29;
+  e3->priority = 26;
   e3->startTime = time(NULL);
   e4->priority = 30;
   e4->startTime = time(NULL);
@@ -55,7 +55,7 @@ int main (int argc, char ** argv)
   (void)argv;
 
   /* Create a Participant. */
-  participant = dds_create_participant (DDS_DOMAIN_DEFAULT, NULL, NULL);
+  participant = dds_create_participant (111, NULL, NULL);
   if (participant < 0)
     DDS_FATAL("dds_create_participant: %s\n", dds_strretcode(-participant));
 

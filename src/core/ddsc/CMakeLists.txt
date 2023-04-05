@@ -45,7 +45,7 @@ prepend(srcs_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/"
   dds_sertype_default.c
   dds_data_allocator.c
   dds_loan.c
-  dds_priorityqueue.c)
+)
 
 if(ENABLE_SHM)
   list(APPEND srcs_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/shm_monitor.c")
@@ -94,7 +94,7 @@ prepend(hdrs_public_ddsc "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>$<
   ddsc/dds_opcodes.h
   ddsc/dds_data_allocator.h
   ddsc/dds_loan_api.h
-  ddsc/dds_priorityqueue.h)
+)
 
 if(ENABLE_SHM)
   list(APPEND hdrs_private_ddsc "${CMAKE_CURRENT_LIST_DIR}/src/shm__monitor.h")

@@ -5,9 +5,17 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
-#include <pthread.h>
-#include <unistd.h>
 #include "dds/export.h"
+#include "dds/config.h"
+
+#if !DDSRT_WITH_FREERTOS
+    #include <pthread.h>
+#else
+    #include "FreeRTOS.h"
+    #include "semphr.h"
+    #include "event_groups.h"
+#endif
+#include <unistd.h>
 static const int MinPQSize = 2;
 static const int thresholdTime = 1;
 
@@ -37,7 +45,9 @@ DDS_EXPORT
 void insert(priorityQueue pQ, elementStruct *eS);
 void percolateDown(priorityQueue pQ);
 void* deleteMin(priorityQueue pQ);
-DDS_EXPORT
-void scanQueue(priorityQueue pQ);
+#if !DDSRT_WITH_FREERTOS
+    DDS_EXPORT
+    void scanQueue(priorityQueue pQ);
+#endif
 
 #endif

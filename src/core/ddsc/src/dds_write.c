@@ -36,19 +36,17 @@
 #include "dds/ddsi/ddsi_addrset.h"
 #endif
 
-typedef struct HelloWorldData_Msg1
-{
-  int32_t userID;
-  char * message;
-} HelloWorldData_Msg1;
-
-extern pthread_cond_t isEmptyCond;
-extern pthread_mutex_t mutex;
+#if !DDSRT_WITH_FREERTOS
+  extern pthread_cond_t isEmptyCond;
+  extern pthread_mutex_t mutex;
+#else
+  extern SemaphoreHandle_t mutex;
+  extern EventGroupHandle_t isEmptyCond;
+#endif
 
 struct ddsi_serdata_plain { struct ddsi_serdata p; };
 struct ddsi_serdata_iox   { struct ddsi_serdata x; };
 struct ddsi_serdata_any   { struct ddsi_serdata a; };
-
 
 priorityQueue init_pq(dds_entity_t writer){
   (void)writer;
@@ -80,15 +78,27 @@ void write_pq(void *arg){
   dds_return_t ret;
  
   while(true){
-    pthread_mutex_lock(&mutex);
+    #if !DDSRT_WITH_FREERTOS
+        pthread_mutex_lock(&mutex);
+    #else
+        xSemaphoreTake(mutex, portMAX_DELAY);
+    #endif
     while(isEmpty(pq)){
       printf("WRITE_PQ:EMPTY...\n");
-      pthread_cond_wait(&isEmptyCond, &mutex);
+      #if !DDSRT_WITH_FREERTOS
+        pthread_cond_wait(&isEmptyCond, &mutex);
+      #else
+        xEventGroupWaitBits(isEmptyCond, 0x1, pdTRUE, pdFALSE, portMAX_DELAY);
+      #endif
     }
     
     elementStruct *p = (elementStruct *)deleteMin(pq);
-    pthread_mutex_unlock(&mutex);
-    if(ret = dds_write(writer, p->msg) != DDS_RETCODE_OK){
+    #if !DDSRT_WITH_FREERTOS
+        pthread_mutex_unlock(&mutex);
+    #else
+        xSemaphoreGive(mutex);
+    #endif
+      if(ret = dds_write(writer, p->msg) != DDS_RETCODE_OK){
       printf("Message send failed!\n");
     }
     free(p->msg);
@@ -431,7 +441,7 @@ static dds_return_t create_and_fill_chunk (dds_writer *wr, const void *data, voi
 static dds_return_t get_iox_chunk (dds_writer *wr, const void *data, void **iox_chunk)
 {
   //note: whether the data was loaned cannot be determined in the non-iceoryx case currently
-  if (!deregister_pub_loan (wr, data))
+  if (!dds_deregister_pub_loan (wr, data))
     return create_and_fill_chunk (wr, data, iox_chunk);
   else
   {
@@ -575,7 +585,7 @@ static dds_return_t dds_write_impl_iox (dds_writer *wr, struct ddsi_writer *ddsi
 
 static dds_return_t dds_write_impl_plain (dds_writer *wr, struct ddsi_writer *ddsi_wr, bool writekey, const void *data, dds_time_t tstamp, dds_write_action action)
 {
-  assert (ddsi_thread_is_awake ());
+  //assert (ddsi_thread_is_awake ());
 #ifdef DDS_HAS_SHM
   assert (wr->m_iox_pub == NULL);
 #endif

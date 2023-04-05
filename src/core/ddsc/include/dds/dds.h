@@ -46,7 +46,7 @@
 #include "dds/ddsc/dds_public_error.h"
 #include "dds/ddsc/dds_public_status.h"
 #include "dds/ddsc/dds_public_listener.h"
-#include "dds/ddsc/dds_priorityqueue.h"
+#include "dds/ddsrt/priorityqueue.h"
 
 #if defined (__cplusplus)
 extern "C" {
