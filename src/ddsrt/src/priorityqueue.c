@@ -141,7 +141,6 @@ void* deleteMin(priorityQueue pQ){
 }
 
 // Scan the bottom of binary heap(floor(size / 2) + 1 ~ size)
-#if !DDSRT_WITH_FREERTOS
 void scanQueue(priorityQueue pQ){
     int index;
     while(true){
@@ -152,9 +151,17 @@ void scanQueue(priorityQueue pQ){
         // }
         index = pQ->size / 2 + 1;
         while(index <= pQ->size){
+            #if !DDSRT_WITH_FREERTOS
             if(time(NULL) - pQ->ele[index]->startTime >= thresholdTime){
                 pQ->ele[index]->startTime = time(NULL);
+
+            #else
+            if(xTaskGetTickCount() - pQ->ele[index]->startTime >= thresholdTime){
+                printf("xTaskGetTickCount() - pQ->ele[index]->startTime >= thresholdTime\r\n");
+                pQ->ele[index]->startTime = xTaskGetTickCount();
+            #endif
                 if(pQ->ele[index]->priority - 1 >= 0){
+                    printf("pQ->ele[index]->priority - 1 >= 0\r\n");
                     #if !DDSRT_WITH_FREERTOS
                         pthread_mutex_lock(&mutex);
                     #else
@@ -174,7 +181,11 @@ void scanQueue(priorityQueue pQ){
             }
             if((index + 1) > pQ->size){
                 index = pQ->size / 2 + 1;
+                #if !DDSRT_WITH_FREERTOS
                 usleep(500000);
+                #else
+                vTaskDelay(0.5 * configTICK_RATE_HZ);
+                #endif
             }else{
                 index = index + 1;
             }
@@ -182,4 +193,3 @@ void scanQueue(priorityQueue pQ){
 
     }
 }
-#endif

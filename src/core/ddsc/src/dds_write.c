@@ -80,8 +80,6 @@ void write_pq(void *arg){
   while(true){
     #if !DDSRT_WITH_FREERTOS
         pthread_mutex_lock(&mutex);
-    #else
-        xSemaphoreTake(mutex, portMAX_DELAY);
     #endif
     while(isEmpty(pq)){
       printf("WRITE_PQ:EMPTY...\n");
@@ -89,6 +87,7 @@ void write_pq(void *arg){
         pthread_cond_wait(&isEmptyCond, &mutex);
       #else
         xEventGroupWaitBits(isEmptyCond, 0x1, pdTRUE, pdFALSE, portMAX_DELAY);
+        xSemaphoreTake(mutex, portMAX_DELAY);
       #endif
     }
     

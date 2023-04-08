@@ -10,14 +10,17 @@
 
 #if !DDSRT_WITH_FREERTOS
     #include <pthread.h>
+    #include <unistd.h>
+    static const int thresholdTime = 1;
+
 #else
     #include "FreeRTOS.h"
+    #include "task.h"
     #include "semphr.h"
     #include "event_groups.h"
+    static const int thresholdTime = 1 * configTICK_RATE_HZ;
 #endif
-#include <unistd.h>
 static const int MinPQSize = 2;
-static const int thresholdTime = 1;
 
 struct elementStruct;
 struct heapStruct;
@@ -26,7 +29,11 @@ typedef struct heapStruct *priorityQueue;
 
 struct elementStruct{
     int priority;
-    time_t startTime;
+    #if !DDSRT_WITH_FREERTOS
+        time_t startTime;
+    #else
+        TickType_t startTime;
+    #endif
     void *msg;
 };
 
@@ -45,9 +52,7 @@ DDS_EXPORT
 void insert(priorityQueue pQ, elementStruct *eS);
 void percolateDown(priorityQueue pQ);
 void* deleteMin(priorityQueue pQ);
-#if !DDSRT_WITH_FREERTOS
-    DDS_EXPORT
-    void scanQueue(priorityQueue pQ);
-#endif
+DDS_EXPORT
+void scanQueue(priorityQueue pQ);
 
 #endif
